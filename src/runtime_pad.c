@@ -501,6 +501,98 @@ static const unsigned char u2_leg_ik_zero[]={
     0xcc,0xcc,
 };
 _Static_assert(sizeof(u2_leg_ik_zero)==sizeof(u2_leg_ik_assert_code),"same size");
+/* The fixes below are for U2 US 1.02 (UP9000-CUSA02320, APP_VER 01.02), whose code sits at other
+ * offsets than EU 1.00: the two U2 fixes above do not match it. */
+/* U2 US 1.02 GetSubMeshInstance (ndlib/render/ngen/mesh.h:1361), assertion
+ * iSubMesh < m_numSubMeshInstances (issues #9, #288: after streaming, train wreck, museum). The
+ * draw loop already skips an instance whose sub-mesh count is 0 (jump to 0xc47f60), and the
+ * other mesh kind skips an out-of-range sub-mesh the same way (0xc47c7a: jae 0xc47f60): the
+ * failed check now takes that path too, so the instance is not drawn this frame. */
+static const unsigned char u2us_submesh_assert_code[]={
+    0x48,0x8b,0x05,0x8d,0x61,0x92,0x00,0x48,0x85,0xc0,0x74,0x41,0x41,0xb8,0x51,0x05,0x00,0x00,0x45,0x31,
+    0xc9,0x48,0x8d,0x3d,0x2c,0x84,0x27,0x00,0x48,0x89,0x74,0x24,0x10,0x48,0x8d,0x35,0x41,0x84,0x27,0x00,
+    0x48,0x89,0x54,0x24,0x18,0x48,0x8d,0x15,0x75,0x84,0x27,0x00,0x48,0x89,0xcb,0x48,0x8d,0x0d,0x52,0xc5,
+    0x1a,0x00,0xff,0xd0,0x48,0x8b,0x74,0x24,0x10,0x48,0x8b,0x54,0x24,0x18,0x48,0x89,0xd9,0xcd,0x41,
+};
+static const unsigned char u2us_submesh_skip[]={
+    0xe9,0x77,0x01,0x00,0x00,                     /* jmp 0xc47f60 (the instance is skipped) */
+    0x66,0x90,
+};
+/* U2 US 1.02 leg IK, the same IsFinite(deltaTransform) assertion as EU 1.00 above (0x4713b9: the
+ * failed branch only; finite deltas jump over it to 0x4713f3). */
+static const unsigned char u2us_leg_ik_assert_code[]={
+    0x48,0x8b,0x05,0xb8,0xcb,0x0f,0x01,0x48,0x85,0xc0,0x74,0x27,0x48,0x8d,0x3d,0xf8,0xa2,0xa0,0x00,0x48,
+    0x8d,0x35,0xc3,0xa1,0xa0,0x00,0x48,0x8d,0x15,0xd4,0x86,0xa5,0x00,0x48,0x8d,0x0d,0x93,0x2f,0x98,0x00,
+    0x41,0xb8,0x87,0x01,0x00,0x00,0x45,0x31,0xc9,0xff,0xd0,0xcd,0x41,0xc4,0xc1,0x78,0x28,0x07,
+};
+static const unsigned char u2us_leg_ik_zero[]={
+    0xc5,0xf8,0x57,0xc0,                          /* vxorps xmm0, xmm0, xmm0 */
+    0xc4,0xc1,0x78,0x29,0x07,                     /* vmovaps [r15], xmm0 */
+    0xeb,0x2f,                                    /* jmp (the update, 0x4713f3) */
+    0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,
+    0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,
+    0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,0xcc,
+};
+_Static_assert(sizeof(u2us_leg_ik_zero)==sizeof(u2us_leg_ik_assert_code),"same size");
+/* U2 US 1.02 shader resource tables. The function at 0xd64940 builds the user data of a shader
+ * stage from a table (context + stage * 0x438 + 0x438): five ranges of 0x30-byte entries
+ * (bounds at +0x14..+0x24) that place resource descriptors, copy constants and call handlers.
+ * Now and then the table holds GPU buffer descriptors instead (dwords such as 0x96db022c and
+ * 0x96d90fac: the dst_sel 0x22c / 0xfac of a V#), after a checkpoint save or level streaming;
+ * the game then ORs a mask 2.5 GB past its state block (fault at 0xd65d32) or calls a handler
+ * that is 0. Where that data comes from is not known yet. The table is checked before the
+ * function runs; one with values no real table holds is replaced by an empty table, so this
+ * draw gets no bindings from it instead of the game stopping. The limits only reject impossible
+ * values: tighter ones (0x408 for the 16-bit offsets of the copy entries) rejected valid tables
+ * hundreds of times a second and washed out the lighting. */
+static const unsigned char u2us_shader_bind_code[]={
+    0x55,0x48,0x89,0xe5,0x41,0x57,0x41,0x56,0x41,0x55,0x41,0x54,0x53,0x48,0x81,0xec,0x98,0x00,0x00,0x00,
+    0x89,0xb5,0x58,0xff,0xff,0xff,0x49,0x89,0xfd,0x4c,0x89,0x6d,0x90,0x48,0x8b,0x05,0x98,0x62,0x2e,0x00,
+    0x48,0x8b,0x00,0x48,0x89,0x45,0xd0,0x89,0xf0,0x48,0x89,0x45,0x88,0x48,0x69,0xd0,0x38,0x04,0x00,0x00,
+    0x49,0x8b,0x84,0x15,0x40,0x04,0x00,0x00,
+};
+#define U2US_STAGE_SIZE 0x438u
+#define U2US_HANDLERS 0x104a300u   /* 16-byte member function pointers called by the last range */
+#define U2US_HANDLER_COUNT 0x1d4u
+static unsigned char u2us_empty_table[0x60] __attribute__((aligned(16)));
+static long u2us_rejected;
+static uint32_t read32(const unsigned char *p) { uint32_t v; memcpy(&v,p,4); return v; }
+/* NULL for a usable table; else the reason, and the entry in *entry (-1: the bounds). */
+static const char *u2us_table_problem(const unsigned char *t, uint64_t image, int *entry) {
+    *entry=-1;
+    if (!runtime_memory_is_mapped((uintptr_t)t,0x28)) return "table not mapped";
+    const uint32_t a=read32(t+0x14), b=read32(t+0x18), c=read32(t+0x1c), d=read32(t+0x20), e=read32(t+0x24);
+    if (a>0x100 || b<a || c<b || d<c || e<d || e>0x100) return "range bounds";
+    if (!runtime_memory_is_mapped((uintptr_t)t,0x28+(uint64_t)e*0x30)) return "entries not mapped";
+    for (uint32_t i=0;i<e;++i) {
+        const unsigned char *r=t+(size_t)i*0x30;   /* fields at the offsets the game uses: r + 0x28.. */
+        *entry=(int)i;
+        if (i<a || (i>=b && i<c)) {                /* descriptor entries */
+            if (read32(r+0x44)>0x100 || read32(r+0x50)>=0x100) return "descriptor size or slot";
+            if (i>=b && (read32(r+0x34)>=0x10000 || read32(r+0x40)>=0x10000)) return "descriptor offsets";
+        } else if (i>=d) {                         /* handler entries */
+            uint16_t h; memcpy(&h,r+0x28,2);
+            uint64_t handler=0;
+            if (h<U2US_HANDLER_COUNT) memcpy(&handler,(const void *)(uintptr_t)(image+U2US_HANDLERS+h*16u),8);
+            if (!handler) return "handler index";
+        }                                          /* the copy entries are 16-bit offsets: any value is in the context */
+    }
+    return NULL;
+}
+static void __attribute__((ms_abi)) u2us_check_shader_table(uint64_t context, uint64_t stage, uint64_t image, uint64_t r14) {
+    (void)r14;
+    uint64_t *slot=(uint64_t *)(uintptr_t)(context+(uint64_t)(uint32_t)stage*U2US_STAGE_SIZE+0x438);
+    const unsigned char *t=(const unsigned char *)(uintptr_t)*slot;
+    if (!t || t==u2us_empty_table) return;
+    int entry;
+    const char *why=u2us_table_problem(t,image,&entry);
+    if (!why) return;
+    const long n=__atomic_add_fetch(&u2us_rejected,1,__ATOMIC_RELAXED);
+    if (n<=16 || !(n&(n-1)))
+        printf("U2 shader table: %s (entry %d) in the table at %p, stage %u: skipped (%ld so far)\n",
+               why,entry,(const void *)t,(unsigned)(uint32_t)stage,n);
+    *slot=(uint64_t)(uintptr_t)u2us_empty_table;
+}
 static const RuntimeGuestCallback guest_callbacks[]={
     {"U1 follow camera (mouse)",0xaecf0,u1_follow_camera_code,sizeof(u1_follow_camera_code),6,u1_follow_camera,NULL},
     {"U1 pad update (mouse)",0x117200,u1_pad_update_code,sizeof(u1_pad_update_code),6,u1_pad_update,NULL},
@@ -511,6 +603,12 @@ static const RuntimeGuestCallback guest_callbacks[]={
      sizeof(u2_focus_reset),NULL,u2_focus_reset},
     {"U2 leg IK NaN delta",0x8ec618,u2_leg_ik_assert_code,sizeof(u2_leg_ik_assert_code),
      sizeof(u2_leg_ik_zero),NULL,u2_leg_ik_zero},
+    {"U2 (US 1.02) sub-mesh assertion skip",0xc47de4,u2us_submesh_assert_code,sizeof(u2us_submesh_assert_code),
+     sizeof(u2us_submesh_skip),NULL,u2us_submesh_skip},
+    {"U2 (US 1.02) leg IK NaN delta",0x4713b9,u2us_leg_ik_assert_code,sizeof(u2us_leg_ik_assert_code),
+     sizeof(u2us_leg_ik_zero),NULL,u2us_leg_ik_zero},
+    {"U2 (US 1.02) shader table check",0xd64940,u2us_shader_bind_code,sizeof(u2us_shader_bind_code),6,
+     u2us_check_shader_table,NULL},
 };
 const RuntimeGuestCallback *runtime_guest_callbacks(size_t *count) {
     *count=sizeof(guest_callbacks)/sizeof(*guest_callbacks);
