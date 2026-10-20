@@ -1,5 +1,17 @@
 # Uncharted: The Nathan Drake Collection for Windows
 
+> **About this fork.** This is SuperMedo's port 0.3.6 with two additions:
+> - **Older CPUs**: runs on CPUs without BMI1, LZCNT and MOVBE, such as 3rd-gen Intel
+>   (Ivy Bridge, tested on an i7-3770). This part is by
+>   [Umar-Qayyum-dev](https://github.com/Umar-Qayyum-dev) (Supermedo/uncharted_pc#336).
+> - **Uncharted 2 US 1.02 (CUSA02320)**: skips a broken sub-mesh instead of stopping on the
+>   `iSubMesh` assertion, guards the shader resource table read at `0xd64940` (crash at
+>   `0xd65d32` or a call to address 0, often after a checkpoint save), and applies the leg IK fix
+>   at the US 1.02 offset.
+>
+> **[Download this build](https://github.com/killerpot02-cell/u2-us-1.02-crash-fix-and-save-crash-legfixes/releases)**.
+> The rest of this README is SuperMedo's and is about the official port.
+
 **Uncharted 1, 2 and 3 from the PS4 collection running natively on Windows 10 and 11, by [SuperMedo](https://github.com/Supermedo).** Mohammed Albarghouthi
 
 Same idea as my [Bloodborne port](https://github.com/Supermedo/bloodborne_pc): the original PS4 game
