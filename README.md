@@ -9,6 +9,9 @@
 >   `0xd65d32` or a call to address 0, often after a checkpoint save), and applies the leg IK fix
 >   at the US 1.02 offset.
 >
+> **Untested**: no long play sessions yet. **[drakolordx7's fork](https://github.com/drakolordx7/uncharted_pc)**
+> is probably better: his pull requests (#348, #396, #397) fix the causes of the same crashes.
+>
 > **[Download this build](https://github.com/killerpot02-cell/u2-us-1.02-crash-fix-and-save-crash-legfixes/releases)**.
 > The rest of this README is SuperMedo's and is about the official port.
 
